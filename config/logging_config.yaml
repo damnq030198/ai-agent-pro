@@ -1,0 +1,30 @@
+version: 1
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: standard
+    level: DEBUG
+    stream: ext://sys.stdout
+    
+  file:
+    class: logging.FileHandler
+    formatter: standard
+    level: INFO
+    filename: "data/logs/ai_agent.log"
+    encoding: utf8
+
+formatters:
+  standard:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  detailed:
+    format: "%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
+
+root:
+  level: INFO
+  handlers: [console, file]

@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # AI Core Infrastructure
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: agent_chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/vectordb:/chroma/chroma
+    environment:
+      - ALLOW_RESET=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: agent_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - ./data/redis_data:/data
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: agent_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-agent_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # --- Monitoring Stack ---
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: agent_prometheus
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: agent_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./data/grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: always
+
+  # --- Application Stack (Ready for Build) ---
+  
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent_api
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://admin:admin_pass@agent_postgres:5432/agent_db?schema=public
+      - REDIS_HOST=agent_redis
+    depends_on:
+      - postgres
+      - redis
+      - chromadb
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agent_frontend
+    ports:
+      - "3001:3001"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+    depends_on:
+      - api
+    restart: always

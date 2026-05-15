@@ -1,0 +1,13 @@
+# AI Core (Python)
+anthropic
+openai
+chromadb
+langchain
+pydantic
+python-dotenv
+pyyaml
+sentence-transformers
+browser-use
+playwright
+fastapi
+uvicorn
