@@ -1,30 +1,42 @@
 'use strict'
 
-const { exec } = require('child_process');
-const path = require('path');
+const axios = require('axios');
 
 class APIBridge {
     static async callPython(query, model_id = null) {
-        return new Promise((resolve, reject) => {
-            const pythonScript = path.join(__dirname, '../../../scripts/api_bridge.py');
-            const command = `python "${pythonScript}" --query "${query}" ${model_id ? `--model ${model_id}` : ''}`;
-
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    return reject({
-                        message: 'Error calling AI Engine',
-                        details: stderr
-                    });
-                }
-                
-                try {
-                    const response = JSON.parse(stdout);
-                    resolve(response);
-                } catch (e) {
-                    resolve({ response: stdout.trim() });
-                }
+        const inferenceUrl = process.env.INFERENCE_URL || 'http://localhost:8000';
+        try {
+            const response = await axios.post(`${inferenceUrl}/generate`, {
+                query,
+                model_id: model_id || 'gemini-1.5-pro'
             });
-        });
+            return response.data;
+        } catch (error) {
+            console.error(`DEBUG: APIBridge error: ${error.message}`);
+            throw new Error('Failed to connect to AI Inference Engine');
+        }
+    }
+
+    /**
+     * Get a readable stream from the Python Inference Server
+     */
+    static async streamPython(query, model_id = null) {
+        const inferenceUrl = process.env.INFERENCE_URL || 'http://localhost:8000';
+        try {
+            const response = await axios({
+                method: 'post',
+                url: `${inferenceUrl}/stream`,
+                data: {
+                    query,
+                    model_id: model_id || 'gemini-1.5-pro'
+                },
+                responseType: 'stream'
+            });
+            return response.data;
+        } catch (error) {
+            console.error(`DEBUG: APIBridge streaming error: ${error.message}`);
+            throw new Error('Failed to connect to AI Inference Engine (Streaming)');
+        }
     }
 }
 

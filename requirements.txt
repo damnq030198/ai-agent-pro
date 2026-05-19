@@ -11,3 +11,7 @@ browser-use
 playwright
 fastapi
 uvicorn
+redis
+google-generativeai
+mcp
+mcp-sdk

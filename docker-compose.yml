@@ -6,7 +6,7 @@ services:
     image: chromadb/chroma:latest
     container_name: agent_chroma
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./data/vectordb:/chroma/chroma
     environment:
@@ -18,7 +18,7 @@ services:
     image: redis:alpine
     container_name: agent_redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: redis-server --appendonly yes
     volumes:
       - ./data/redis_data:/data
@@ -32,51 +32,56 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
       POSTGRES_DB: ${POSTGRES_DB:-agent_db}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./data/postgres_data:/var/lib/postgresql/data
     restart: always
 
-  # --- Monitoring Stack ---
+  # --- Application Stack ---
   
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: agent_prometheus
+  inference:
+    build:
+      context: .
+      dockerfile: Dockerfile # Dùng chung Dockerfile nếu nó cài đủ python & node, hoặc tạo cái mới.
+    container_name: agent_inference
+    command: python3 src/inference/server.py
+    env_file: .env
+    ports:
+      - "8000:8000"
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    restart: always
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: agent_grafana
-    ports:
-      - "3001:3000"
+      - .:/app
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-    volumes:
-      - ./data/grafana_data:/var/lib/grafana
+      - INFERENCE_PORT=8000
+      - REDIS_HOST=agent_redis
     depends_on:
-      - prometheus
+      - redis
     restart: always
 
-  # --- Application Stack (Ready for Build) ---
-  
   api:
     build: 
       context: .
       dockerfile: Dockerfile
     container_name: agent_api
+    env_file: .env
     ports:
-      - "3000:3000"
+      - "3003:3000"
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./config:/app/config
+      - ./.env:/app/.env
     environment:
+      - PORT=3000
       - DATABASE_URL=postgresql://admin:admin_pass@agent_postgres:5432/agent_db?schema=public
       - REDIS_HOST=agent_redis
+      - CHROMA_HOST=agent_chroma
+      - CHROMA_PORT=8000
+      - INFERENCE_URL=http://agent_inference:8000
     depends_on:
       - postgres
       - redis
       - chromadb
+      - inference
     restart: always
 
   frontend:
@@ -85,9 +90,11 @@ services:
       dockerfile: Dockerfile
     container_name: agent_frontend
     ports:
-      - "3001:3001"
+      - "3005:3000"
+    volumes:
+      - ./frontend:/app
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:3003/api/v1
     depends_on:
       - api
     restart: always

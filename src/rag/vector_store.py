@@ -8,7 +8,10 @@ class VectorStore:
     Manages collections and semantic search.
     """
 
-    def __init__(self, host: str = "localhost", port: int = 8000):
+    def __init__(self, host: str = None, port: int = None):
+        import os
+        host = host or os.getenv("CHROMA_HOST", "localhost")
+        port = int(port or os.getenv("CHROMA_PORT", 8000))
         self.client = chromadb.HttpClient(host=host, port=port)
 
     def get_or_create_collection(self, name: str):

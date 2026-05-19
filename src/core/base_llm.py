@@ -1,4 +1,5 @@
 import abc
+import os
 from typing import Any, Dict, List, Optional
 
 class BaseLLM(abc.ABC):
@@ -30,6 +31,13 @@ class BaseLLM(abc.ABC):
 
     @abc.abstractmethod
     def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> str:
+        pass
+
+    @abc.abstractmethod
+    def stream_generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs):
+        """
+        Generator for streaming responses.
+        """
         pass
 
     def _log_usage(self, usage_data: Dict[str, int]):

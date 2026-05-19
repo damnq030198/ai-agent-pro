@@ -39,3 +39,6 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+
+# Project Data
+data/
